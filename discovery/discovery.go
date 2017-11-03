@@ -16,6 +16,7 @@ package discovery
 import (
 	"context"
 	"fmt"
+	"reflect"
 	"sync"
 	"time"
 
@@ -158,6 +159,10 @@ func (sd *StaticProvider) Run(ctx context.Context, ch chan<- []*config.TargetGro
 	close(ch)
 }
 
+var mu = &sync.Mutex{}
+var targetProviders = make(map[*TargetProvider][]*TargetSet)
+var currentGroups = make(map[*TargetProvider][]*config.TargetGroup)
+
 // TargetSet handles multiple TargetProviders and sends a full overview of their
 // discovered TargetGroups to a Syncer.
 type TargetSet struct {
@@ -227,15 +232,12 @@ func (ts *TargetSet) UpdateProviders(p map[string]TargetProvider) {
 	ts.providerCh <- p
 }
 
+// TODO:
+// implement cancelling the old target providers
 func (ts *TargetSet) updateProviders(ctx context.Context, providers map[string]TargetProvider) {
 
-	// Stop all previous target providers of the target set.
-	if ts.cancelProviders != nil {
-		ts.cancelProviders()
-	}
-	ctx, ts.cancelProviders = context.WithCancel(ctx)
-
 	var wg sync.WaitGroup
+
 	// (Re-)create a fresh tgroups map to not keep stale targets around. We
 	// will retrieve all targets below anyway, so cleaning up everything is
 	// safe and doesn't inflict any additional cost.
@@ -243,48 +245,118 @@ func (ts *TargetSet) updateProviders(ctx context.Context, providers map[string]T
 	ts.tgroups = map[string]*config.TargetGroup{}
 	ts.mtx.Unlock()
 
-	for name, prov := range providers {
-		wg.Add(1)
+	for newProviderName, newProvider := range providers {
 
-		updates := make(chan []*config.TargetGroup)
-		go prov.Run(ctx, updates)
+		var preExistingProvider *TargetProvider = nil
 
-		go func(name string, prov TargetProvider) {
-			select {
-			case <-ctx.Done():
-			case initial, ok := <-updates:
-				// Handle the case that a target provider exits and closes the channel
-				// before the context is done.
-				if !ok {
-					break
-				}
-				// First set of all targets the provider knows.
-				for _, tgroup := range initial {
-					ts.setTargetGroup(name, tgroup)
-				}
-			case <-time.After(5 * time.Second):
-				// Initial set didn't arrive. Act as if it was empty
-				// and wait for updates later on.
+		mu.Lock()
+
+		for existingProvider, _ := range targetProviders {
+			if reflect.DeepEqual(newProvider, existingProvider) {
+				preExistingProvider = existingProvider
+				break
 			}
-			wg.Done()
+		}
 
-			// Start listening for further updates.
-			for {
+		if preExistingProvider != nil {
+			// Bind this target set to an existing provider
+
+			// Set the latest state of the groups as initial if not empty
+			currentGroups := currentGroups[preExistingProvider]
+			if len(currentGroups) > 0 {
+
+				for _, tgroup := range currentGroups {
+					ts.setTargetGroup(newProviderName, tgroup)
+				}
+			}
+
+			// Bind the target set to the future updates
+			followers := targetProviders[preExistingProvider]
+			followers = append(followers, ts)
+			targetProviders[preExistingProvider] = followers
+
+		} else {
+			// Register a new target provider
+
+			// Current groups of this provider is empty at the moment
+			currentGroups[&newProvider] = make([]*config.TargetGroup, 0)
+
+			// Set the followers of this provider
+			targetSets := make([]*TargetSet, 0)
+			targetSets = append(targetSets, ts)
+			targetProviders[&newProvider] = targetSets
+		}
+
+		mu.Unlock()
+
+		if preExistingProvider == nil {
+			// Start running the newly added provider
+			wg.Add(1)
+
+			updates := make(chan []*config.TargetGroup)
+			go newProvider.Run(ctx, updates)
+
+			go func(name string, prov *TargetProvider) {
 				select {
 				case <-ctx.Done():
-					return
-				case tgs, ok := <-updates:
+				case initial, ok := <-updates:
 					// Handle the case that a target provider exits and closes the channel
 					// before the context is done.
 					if !ok {
-						return
+						break
 					}
-					for _, tg := range tgs {
-						ts.update(name, tg)
+
+					mu.Lock()
+
+					// Update the current groups of the provider with the initial set of targets
+					currentGroups[prov] = initial
+
+					// Update all of the followers of this provider with the same initials
+					for _, ts := range targetProviders[prov] {
+						for _, tgroup := range initial {
+							ts.setTargetGroup(name, tgroup)
+						}
+					}
+
+					mu.Unlock()
+
+				case <-time.After(5 * time.Second):
+					// Initial set didn't arrive. Act as if it was empty
+					// and wait for updates later on.
+				}
+
+				wg.Done()
+
+				// Start listening for further updates.
+				for {
+					select {
+					case <-ctx.Done():
+						return
+					case tgs, ok := <-updates:
+						// Handle the case that a target provider exits and closes the channel
+						// before the context is done.
+						if !ok {
+							return
+						}
+
+						mu.Lock()
+
+						// Keep current groups up to date
+						currentGroups[prov] = append(currentGroups[prov], tgs...)
+
+						// Update all of the followers
+						for _, ts := range targetProviders[prov] {
+							for _, tg := range tgs {
+								ts.update(name, tg)
+							}
+						}
+
+						mu.Unlock()
+
 					}
 				}
-			}
-		}(name, prov)
+			}(newProviderName, &newProvider)
+		}
 	}
 
 	// We wait for a full initial set of target groups before releasing the mutex
