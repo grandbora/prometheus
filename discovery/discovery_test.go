@@ -76,40 +76,58 @@ func (tp mockTargetProvider) sendUpdates() {
 	}
 }
 
-func TestSingleTargetSetWithSingleProvider(t *testing.T) {
+func TestSingleTargetSetWithSingleProviderOnlySendsNewTargetGroups(t *testing.T) {
 
-	testCases := []struct {
-		updates []update
-		expectedGroups map[string]struct{}
-		isInitialDelayed bool
-		maxSyncCallCount int
-	}{
-		// Provider sends initials only
-		{
-			updates: []update{{[]string{"initial1", "initial2"}, 0}},
-			expectedGroups: map[string]struct{}{"initial1":struct{}{}, "initial2":struct{}{}},
-			isInitialDelayed: false,
-			maxSyncCallCount: 1,
-		},
-		// Provider sends initials only but after a delay
-		{
-			updates: []update{{[]string{"initial1", "initial2"}, 6000}},
-			expectedGroups: map[string]struct{}{"initial1":struct{}{}, "initial2":struct{}{}},
-			isInitialDelayed: true,
-			maxSyncCallCount: 2,
-		},
-		{
-			updates: []update{
-	  		{[]string{"initial1", "initial2"}, 6000},
-	  		{[]string{"update1", "update2"}, 500},
-	  	},
-			expectedGroups: map[string]struct{}{"initial1":struct{}{}, "initial2":struct{}{}, "update1":struct{}{}, "update2":struct{}{}},
-			isInitialDelayed: true,
-			maxSyncCallCount: 3,
-		},
+	testCases := [][]update{
+		[]update{}, // No updates
+		
+		[]update{{[]string{}, 0}}, // Empty initials
+		
+		[]update{{[]string{}, 6000}}, // Empty initials with a delay
+		
+		[]update{{[]string{"initial1", "initial2"}, 0}}, // Initials only
+		
+		[]update{{[]string{"initial1", "initial2"}, 6000}}, // Initials only but after a delay
+		
+		[]update{ // Initials and new groups
+  		{[]string{"initial1", "initial2"}, 0},
+  		{[]string{"update1", "update2"}, 0},
+  	},
+
+		[]update{ // Initials and new groups after a delay
+  		{[]string{"initial1", "initial2"}, 6000},
+  		{[]string{"update1", "update2"}, 500},
+  	},
+
+		[]update{
+  		{[]string{"initial1", "initial2"}, 100},
+  		{[]string{"update1", "update2", "update3", "update4", "update5", "update6", "update7", "update8", "update9", "update10", "update11"}, 100},
+  	},
+
+		[]update{
+  		{[]string{"initial1"}, 10},
+  		{[]string{"update1"}, 45},
+  		{[]string{"update2", "update3", "update4"}, 0},
+  		{[]string{"update5"}, 10},
+  		{[]string{"update6", "update7", "update8", "update9"}, 70},
+  	},
+
+		[]update{
+  		{[]string{"initial1", "initial2"}, 5},
+  		{[]string{}, 100},
+  		{[]string{"update1", "update2"}, 100},
+  		{[]string{"update3", "update4", "update5"}, 70},
+  	},
 	}
 
-	for i, testCase := range testCases {
+	for i, updates := range testCases {
+
+		expectedGroups := make(map[string]struct{})
+		for _, update := range updates {
+			for _, target := range update.targets {
+				expectedGroups[target] = struct{}{}
+			}
+		}
 
 		var wg sync.WaitGroup
 		wg.Add(1)
@@ -127,7 +145,7 @@ func TestSingleTargetSetWithSingleProvider(t *testing.T) {
 					initialGroups = tgs
 				}
 
-				if len(tgs) == len(testCase.expectedGroups) {
+				if len(tgs) == len(expectedGroups) {
 					// All the groups are sent, we can start asserting
 					wg.Done()
 				}				
@@ -137,7 +155,7 @@ func TestSingleTargetSetWithSingleProvider(t *testing.T) {
 		ctx, cancel := context.WithCancel(context.Background())
 		defer cancel()
     
-		tp := newMockTargetProvider(testCase.updates)
+		tp := newMockTargetProvider(updates)
 		targetProviders := map[string]TargetProvider{}
 		targetProviders["testProvider"] = tp
 
@@ -157,170 +175,30 @@ func TestSingleTargetSetWithSingleProvider(t *testing.T) {
 		case <-finalize:
 
 			if *tp.callCount != 1 {
-				t.Errorf("In test case %v: TargetProvider Run should be called once only, was called %v times", *tp.callCount, i)
+				t.Errorf("In test case %v: TargetProvider Run should be called once only, was called %v times",i, *tp.callCount)
 			}
 
-			if testCase.isInitialDelayed {
-				// The initial target groups should be empty because provider didn't respond within 5 secs
+			if len(updates) > 0 && updates[0].interval > 5000 {
+				// If the initial set of targets never arrive or arrive after 5 seconds
+				// Sync call should receive empty set of targets
 				if len(initialGroups) != 0 {
-					t.Errorf("In test case %v: Expecting 0 initial target groups, received %v", len(initialGroups), i)
+					t.Errorf("In test case %v: Expecting 0 initial target groups, received %v", i, len(initialGroups))
 				}
 			}
 
-			if syncCallCount > testCase.maxSyncCallCount {
-				t.Errorf("In test case %v: Sync should be called at most %v times", testCase.maxSyncCallCount, i)
-			}
-
-			if len(syncedGroups) != len(testCase.expectedGroups) {
-				t.Errorf("In test case %v: Expecting %v target groups, received %v", len(testCase.expectedGroups), len(syncedGroups), i)
-			}
+			if len(syncedGroups) != len(expectedGroups) {
+				t.Errorf("In test case %v: Expecting %v target groups, received %v", i, len(expectedGroups), len(syncedGroups))
+			}			
 
 			for _, tg := range syncedGroups {
-				if _, ok := testCase.expectedGroups[tg.Source]; ok == false {
-					t.Errorf("In test case %v: '%s' does not exist in expected target groups: %s", tg.Source, testCase.expectedGroups, i)
+				if _, ok := expectedGroups[tg.Source]; ok == false {
+					t.Errorf("In test case %v: '%s' does not exist in expected target groups: %s", i, tg.Source, expectedGroups)
 				} else {
-					delete(testCase.expectedGroups, tg.Source) // removed used targets from the map
+					delete(expectedGroups, tg.Source) // removed used targets from the map
 				}
 			}
 		}
   }
-}
-
-func TestOneScrapeConfigWithOneProviderSendsInitialsAndUpdates(t *testing.T) {
-	var wg sync.WaitGroup
-	wg.Add(1)
-
-	syncCallCount := 0
-	var syncedGroups []*config.TargetGroup
-
-	targetSet := NewTargetSet(&mockSyncer{
-		sync: func(tgs []*config.TargetGroup){
-			syncCallCount++
-			syncedGroups = tgs
-
-			if len(tgs) == 3 {
-				// we are expecting 3 target groups
-				wg.Done()
-			}				
-		},
-	})
-
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-  
-  tp := newMockTargetProvider([]update{
-  	{[]string{"initial1"}, 0},
-  	{[]string{"update1", "update2"}, 0},
-  	})
-	targetProviders := map[string]TargetProvider{}
-	targetProviders["testProvider"] = tp
-
-	go targetSet.Run(ctx)
-	targetSet.UpdateProviders(targetProviders)
-
-	finalize := make(chan struct{})
-	go func() {
-		defer close(finalize)
-		wg.Wait()
-	}()
-
-	select {
-	case <-time.After(20000  * time.Millisecond):
-		t.Error("Test timed out after 20000 millisecond. All targets should be sent within the timeout")
-
-	case <-finalize:
-
-		if *tp.callCount != 1 {
-			t.Errorf("TargetProvider Run should be called once only, was called %v times", *tp.callCount)
-		}
-
-		if syncCallCount > 2 {
-			// At most 2 sync calls are expected because there is only one update after initials
-			t.Fatalf("Sync should be called at most twice")
-		}
-
-		if len(syncedGroups) != 3 {
-			t.Errorf("Expecting 3 target groups, received %v", len(syncedGroups))
-		}
-
-		expectedGroups := map[string]struct{}{"initial1":struct{}{}, "update1":struct{}{}, "update2":struct{}{}}
-		for _, tg := range syncedGroups {
-			if _, ok := expectedGroups[tg.Source]; ok == false {
-				t.Errorf("'%s' does not exist in expected target groups: %s", tg.Source, expectedGroups)
-			} else {
-				delete(expectedGroups, tg.Source) // removed used targets from the map
-			}
-		}
-	}
-}
-
-
-
-func TestOneScrapeConfigWithOneProviderSendsDelayedInitialsAndUpdates(t *testing.T) {
-	var wg sync.WaitGroup
-	wg.Add(1)
-
-	syncCallCount := 0
-	var syncedGroups []*config.TargetGroup
-
-	targetSet := NewTargetSet(&mockSyncer{
-		sync: func(tgs []*config.TargetGroup){
-			syncCallCount++
-			syncedGroups = tgs
-
-			if len(tgs) == 4 {
-				// We are expecting 4 target groups
-				wg.Done()
-			}				
-		},
-	})
-
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-  
-  tp := newMockTargetProvider([]update{
-  	{[]string{"initial1", "initial2"}, 6000},
-  	{[]string{"update1", "update2"}, 500},
-  	})
-	targetProviders := map[string]TargetProvider{}
-	targetProviders["testProvider"] = tp
-
-	go targetSet.Run(ctx)
-	targetSet.UpdateProviders(targetProviders)
-
-	finalize := make(chan struct{})
-	go func() {
-		defer close(finalize)
-		wg.Wait()
-	}()
-
-	select {
-	case <-time.After(20000  * time.Millisecond):
-		t.Error("Test timed out after 20000 millisecond. All targets should be sent within the timeout")
-
-	case <-finalize:
-
-		if *tp.callCount != 1 {
-			t.Errorf("TargetProvider Run should be called once only, was called %v times", *tp.callCount)
-		}
-
-		if syncCallCount > 3 {
-			t.Fatalf("Sync should be called at most 3 times")
-		}
-
-		if len(syncedGroups) != 4 {
-			t.Errorf("Expecting 4 target groups, received %v", len(syncedGroups))
-		}
-
-		expectedGroups := map[string]struct{}{"initial1":struct{}{}, "initial2":struct{}{}, "update1":struct{}{}, "update2":struct{}{}}
-		for _, tg := range syncedGroups {
-			if _, ok := expectedGroups[tg.Source]; ok == false {
-				t.Errorf("'%s' does not exist in expected target groups: %s", tg.Source, expectedGroups)
-			} else {
-				delete(expectedGroups, tg.Source) // removed used targets from the map
-			}
-		}
-	}
 }
 
 func TestTargetSetRecreatesTargetGroupsEveryRun(t *testing.T) {
