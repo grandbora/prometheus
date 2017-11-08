@@ -15,6 +15,7 @@ package discovery
 
 import (
 	"context"
+	"io/ioutil"
 	"reflect"
 	"sync"
 	"sync/atomic"
@@ -28,212 +29,12 @@ import (
 
 func TestSingleTargetSetWithSingleProviderOnlySendsNewTargetGroups(t *testing.T) {
 
-	testCases := `
-# No updates.
-- []
-
-# Empty initials.
-- - target_groups: []
-    interval: 5
-
-# Empty initials with a delay.
-- - target_groups: []
-    interval: 6000
-
-# Initials only.
-- - target_groups:
-    - source: initial1
-      targets:
-      - instance: 10.11.122.11:6001
-    - source: initial2
-      targets:
-      - instance: 10.11.122.12:6001
-    interval: 0
-
-# Initials only but after a delay.
-- - target_groups:
-    - source: initial1
-      targets:
-      - instance: 10.11.122.11:6001
-    - source: initial2
-      targets:
-      - instance: 10.11.122.12:6001
-    interval: 6000
-
-# Initials and new groups.
-- - target_groups:
-    - source: initial1
-      targets:
-      - instance: 10.11.122.11:6001
-    - source: initial2
-      targets:
-      - instance: 10.11.122.12:6001
-    interval: 0
-
-  - target_groups:
-    - source: update1
-      targets:
-      - instance: 10.11.122.13:6001
-    - source: update2
-      targets:
-      - instance: 10.11.122.14:6001
-    interval: 5
-
-# Initials and new groups after a delay.
-- - target_groups:
-    - source: initial1
-      targets:
-      - instance: 10.11.122.11:6001
-    - source: initial2
-      targets:
-      - instance: 10.11.122.12:6001
-    interval: 6000
-
-  - target_groups:
-    - source: update1
-      targets:
-      - instance: 10.11.122.13:6001
-    - source: update2
-      targets:
-      - instance: 10.11.122.14:6001
-    interval: 500
-
-# Next test case.
-- - target_groups:
-    - source: initial1
-      targets:
-      - instance: 10.11.122.11:6001
-    interval: 100
-
-  - target_groups:
-    - source: update1
-      targets:
-      - instance: 10.11.122.12:6001
-    interval: 100
-
-  - target_groups:
-    - source: update2
-      targets:
-      - instance: 10.11.122.13:6001
-    interval: 100
-
-# Next test case.
-- - target_groups:
-    - source: initial1
-      targets:
-      - instance: 10.11.122.11:6001
-    - source: initial2
-      targets:
-      - instance: 10.11.122.12:6001
-    interval: 100
-
-  - target_groups:
-    - source: update1
-      targets:
-      - instance: 10.11.122.13:6001
-    - source: update2
-      targets:
-      - instance: 10.11.122.14:6001
-    - source: update3
-      targets:
-      - instance: 10.11.122.15:6001
-    - source: update4
-      targets:
-      - instance: 10.11.122.16:6001
-    - source: update5
-      targets:
-      - instance: 10.11.122.17:6001
-    - source: update6
-      targets:
-      - instance: 10.11.122.18:6001
-    interval: 100
-
-# Next test case.
-- - target_groups:
-    - source: initial1
-      targets:
-      - instance: 10.11.122.11:6001
-    interval: 10
-
-  - target_groups:
-    - source: update1
-      targets:
-      - instance: 10.11.122.13:6001
-    interval: 45
-
-  - target_groups:
-    - source: update2
-      targets:
-      - instance: 10.11.122.14:6001
-    - source: update3
-      targets:
-      - instance: 10.11.122.15:6001
-    - source: update4
-      targets:
-      - instance: 10.11.122.16:6001
-    interval: 0
-
-  - target_groups:
-    - source: update5
-      targets:
-      - instance: 10.11.122.17:6001
-    interval: 10
-
-  - target_groups:
-    - source: update6
-      targets:
-      - instance: 10.11.122.18:6001
-    - source: update7
-      targets:
-      - instance: 10.11.122.19:6001
-    - source: update8
-      targets:
-      - instance: 10.11.122.20:6001
-    interval: 70
-
-# Next test case.
-- - target_groups:
-    - source: initial1
-      targets:
-      - instance: 10.11.122.11:6001
-    - source: initial2
-      targets:
-      - instance: 10.11.122.12:6001
-    interval: 5
-
-  - target_groups: []
-    interval: 100
-
-  - target_groups:
-    - source: update1
-      targets:
-      - instance: 10.11.122.13:6001
-    - source: update2
-      targets:
-      - instance: 10.11.122.14:6001
-    interval: 100
-
-  - target_groups:
-    - source: update3
-      targets:
-      - instance: 10.11.122.15:6001
-    - source: update4
-      targets:
-      - instance: 10.11.122.16:6001
-    - source: update5
-      targets:
-      - instance: 10.11.122.17:6001
-    interval: 70
-`
-
-	parsedTestCases := [][]update{}
-
-	err := yaml.Unmarshal([]byte(testCases), &parsedTestCases)
+	testCases, err := loadTestCases("single_provider_only_new_groups.yaml")
 	if err != nil {
 		t.Fatalf("error while parsing test cases: %v", err)
 	}
 
-	for i, updates := range parsedTestCases {
+	for i, updates := range testCases {
 
 		expectedGroups := make(map[string]struct{})
 		for _, update := range updates {
@@ -309,139 +110,7 @@ func TestSingleTargetSetWithSingleProviderOnlySendsNewTargetGroups(t *testing.T)
 
 func TestSingleTargetSetWithSingleProviderSendsUpdatedTargetGroups(t *testing.T) {
 
-	testCases := `
-# Update same initial group multiple times.
-- - target_groups:
-    - source: initial1
-      targets:
-      - instance: "10.11.122.11:6001"
-    interval: 3
-
-  - target_groups:
-    - source: initial1
-      targets:
-      - instance: "10.11.122.11:6002"
-    interval: 10
-
-  - target_groups:
-    - source: initial1
-      targets:
-      - instance: "10.11.122.11:6003"
-    interval: 4
-
-# Update second round target.
-- - target_groups:
-    - source: initial1
-      targets:
-      - instance: "10.11.122.11:6001"
-    interval: 3
-
-  - target_groups:
-    - source: update1
-      targets:
-      - instance: "10.11.122.11:6002"
-    interval: 10
-
-  - target_groups:
-    - source: update1
-      targets:
-      - instance: "10.11.122.11:6003"
-      - instance: "10.11.122.11:6004"
-      - instance: "10.11.122.11:6005"
-    interval: 10
-
-# Next test case.
-- - target_groups:
-    - source: initial1
-      targets:
-      - instance: "10.11.122.11:6001"
-    - source: initial2
-      targets:
-      - instance: "10.11.122.12:6001"
-    interval: 3
-
-  - target_groups:
-    - source: update1
-      targets:
-      - instance: "10.11.122.13:6001"
-    - source: initial2
-      targets:
-      - instance: "10.11.123.12:6001"
-      - instance: "10.11.123.13:6001"
-    interval: 10
-
-  - target_groups:
-    - source: update2
-      targets:
-      - instance: "10.11.122.14:6001"
-    - source: initial1
-      targets: []
-    interval: 10
-
-  - target_groups:
-    - source: update1
-      targets:
-      - instance: "10.11.122.13:6001"
-      - instance: "10.11.122.15:6001"
-      - instance: "10.11.122.16:6001"
-    interval: 10
-
-# Next test case.
-- - target_groups:
-    - source: initial1
-      targets:
-      - instance: "10.11.122.11:6001"
-      - instance: "10.11.122.12:6001"
-      - instance: "10.11.122.13:6001"
-    - source: initial2
-      targets:
-      - instance: "10.11.122.14:6001"
-    interval: 3
-
-  - target_groups:
-    - source: initial1
-      targets:
-      - instance: "10.11.122.13:6001"
-    interval: 10
-
-# Next test case.
-- - target_groups:
-    - source: initial1
-      targets:
-      - instance: "10.11.122.11:6001"
-      - instance: "10.11.122.12:6001"
-      - instance: "10.11.122.13:6001"
-    - source: initial2
-      targets:
-      - instance: "10.11.122.14:6001"
-    interval: 1000
-
-  - target_groups:
-    - source: initial1
-      targets:
-      - instance: "10.11.122.12:6001"
-    - source: update1
-      targets:
-      - instance: "10.11.122.15:6001"
-    interval: 3000
-
-  - target_groups:
-    - source: initial1
-      targets: []
-    - source: update1
-      targets:
-      - instance: "10.11.122.15:6001"
-      - instance: "10.11.122.16:6001"
-    interval: 3000
-`
-
-	parsedTestCases := [][]update{}
-	err := yaml.Unmarshal([]byte(testCases), &parsedTestCases)
-	if err != nil {
-		t.Fatalf("error while parsing test cases: %v", err)
-	}
-
-	// Function to determine if this sync call received the latest state of
+	// Function to determine if the sync call received the latest state of
 	// all the target groups that came out of the target provider.
 	endStateAchieved := func(groupsSentToSyc []*config.TargetGroup, endState map[string]config.TargetGroup) bool {
 
@@ -466,7 +135,12 @@ func TestSingleTargetSetWithSingleProviderSendsUpdatedTargetGroups(t *testing.T)
 		return true
 	}
 
-	for i, updates := range parsedTestCases {
+	testCases, err := loadTestCases("single_provider_sends_updated_groups.yaml")
+	if err != nil {
+		t.Fatalf("error while parsing test cases: %v", err)
+	}
+
+	for i, updates := range testCases {
 
 		expectedGroups := make(map[string]config.TargetGroup)
 		for _, update := range updates {
@@ -673,6 +347,23 @@ func (u *update) UnmarshalYAML(unmarshal func(interface{}) error) error {
 	}
 
 	return nil
+}
+
+func loadTestCases(fileName string) ([][]update, error) {
+	content, err := ioutil.ReadFile("testdata/" + fileName)
+
+	if err != nil {
+		return nil, err
+	}
+
+	parsedTestCases := [][]update{}
+
+	err = yaml.Unmarshal([]byte(string(content)), &parsedTestCases)
+	if err != nil {
+		return nil, err
+	}
+
+	return parsedTestCases, nil
 }
 
 type mockTargetProvider struct {

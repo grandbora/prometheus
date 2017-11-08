@@ -1,0 +1,195 @@
+# No updates.
+- []
+
+# Empty initials.
+- - target_groups: []
+    interval: 5
+
+# Empty initials with a delay.
+- - target_groups: []
+    interval: 6000
+
+# Initials only.
+- - target_groups:
+    - source: initial1
+      targets:
+      - instance: 10.11.122.11:6001
+    - source: initial2
+      targets:
+      - instance: 10.11.122.12:6001
+    interval: 0
+
+# Initials only but after a delay.
+- - target_groups:
+    - source: initial1
+      targets:
+      - instance: 10.11.122.11:6001
+    - source: initial2
+      targets:
+      - instance: 10.11.122.12:6001
+    interval: 6000
+
+# Initials and new groups.
+- - target_groups:
+    - source: initial1
+      targets:
+      - instance: 10.11.122.11:6001
+    - source: initial2
+      targets:
+      - instance: 10.11.122.12:6001
+    interval: 0
+
+  - target_groups:
+    - source: update1
+      targets:
+      - instance: 10.11.122.13:6001
+    - source: update2
+      targets:
+      - instance: 10.11.122.14:6001
+    interval: 5
+
+# Initials and new groups after a delay.
+- - target_groups:
+    - source: initial1
+      targets:
+      - instance: 10.11.122.11:6001
+    - source: initial2
+      targets:
+      - instance: 10.11.122.12:6001
+    interval: 6000
+
+  - target_groups:
+    - source: update1
+      targets:
+      - instance: 10.11.122.13:6001
+    - source: update2
+      targets:
+      - instance: 10.11.122.14:6001
+    interval: 500
+
+# Next test case.
+- - target_groups:
+    - source: initial1
+      targets:
+      - instance: 10.11.122.11:6001
+    interval: 100
+
+  - target_groups:
+    - source: update1
+      targets:
+      - instance: 10.11.122.12:6001
+    interval: 100
+
+  - target_groups:
+    - source: update2
+      targets:
+      - instance: 10.11.122.13:6001
+    interval: 100
+
+# Next test case.
+- - target_groups:
+    - source: initial1
+      targets:
+      - instance: 10.11.122.11:6001
+    - source: initial2
+      targets:
+      - instance: 10.11.122.12:6001
+    interval: 100
+
+  - target_groups:
+    - source: update1
+      targets:
+      - instance: 10.11.122.13:6001
+    - source: update2
+      targets:
+      - instance: 10.11.122.14:6001
+    - source: update3
+      targets:
+      - instance: 10.11.122.15:6001
+    - source: update4
+      targets:
+      - instance: 10.11.122.16:6001
+    - source: update5
+      targets:
+      - instance: 10.11.122.17:6001
+    - source: update6
+      targets:
+      - instance: 10.11.122.18:6001
+    interval: 100
+
+# Next test case.
+- - target_groups:
+    - source: initial1
+      targets:
+      - instance: 10.11.122.11:6001
+    interval: 10
+
+  - target_groups:
+    - source: update1
+      targets:
+      - instance: 10.11.122.13:6001
+    interval: 45
+
+  - target_groups:
+    - source: update2
+      targets:
+      - instance: 10.11.122.14:6001
+    - source: update3
+      targets:
+      - instance: 10.11.122.15:6001
+    - source: update4
+      targets:
+      - instance: 10.11.122.16:6001
+    interval: 0
+
+  - target_groups:
+    - source: update5
+      targets:
+      - instance: 10.11.122.17:6001
+    interval: 10
+
+  - target_groups:
+    - source: update6
+      targets:
+      - instance: 10.11.122.18:6001
+    - source: update7
+      targets:
+      - instance: 10.11.122.19:6001
+    - source: update8
+      targets:
+      - instance: 10.11.122.20:6001
+    interval: 70
+
+# Next test case.
+- - target_groups:
+    - source: initial1
+      targets:
+      - instance: 10.11.122.11:6001
+    - source: initial2
+      targets:
+      - instance: 10.11.122.12:6001
+    interval: 5
+
+  - target_groups: []
+    interval: 100
+
+  - target_groups:
+    - source: update1
+      targets:
+      - instance: 10.11.122.13:6001
+    - source: update2
+      targets:
+      - instance: 10.11.122.14:6001
+    interval: 100
+
+  - target_groups:
+    - source: update3
+      targets:
+      - instance: 10.11.122.15:6001
+    - source: update4
+      targets:
+      - instance: 10.11.122.16:6001
+    - source: update5
+      targets:
+      - instance: 10.11.122.17:6001
+    interval: 70

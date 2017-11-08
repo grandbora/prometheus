@@ -1,0 +1,123 @@
+# Update same initial group multiple times.
+- - target_groups:
+    - source: initial1
+      targets:
+      - instance: "10.11.122.11:6001"
+    interval: 3
+
+  - target_groups:
+    - source: initial1
+      targets:
+      - instance: "10.11.122.11:6002"
+    interval: 10
+
+  - target_groups:
+    - source: initial1
+      targets:
+      - instance: "10.11.122.11:6003"
+    interval: 4
+
+# Update second round target.
+- - target_groups:
+    - source: initial1
+      targets:
+      - instance: "10.11.122.11:6001"
+    interval: 3
+
+  - target_groups:
+    - source: update1
+      targets:
+      - instance: "10.11.122.11:6002"
+    interval: 10
+
+  - target_groups:
+    - source: update1
+      targets:
+      - instance: "10.11.122.11:6003"
+      - instance: "10.11.122.11:6004"
+      - instance: "10.11.122.11:6005"
+    interval: 10
+
+# Next test case.
+- - target_groups:
+    - source: initial1
+      targets:
+      - instance: "10.11.122.11:6001"
+    - source: initial2
+      targets:
+      - instance: "10.11.122.12:6001"
+    interval: 3
+
+  - target_groups:
+    - source: update1
+      targets:
+      - instance: "10.11.122.13:6001"
+    - source: initial2
+      targets:
+      - instance: "10.11.123.12:6001"
+      - instance: "10.11.123.13:6001"
+    interval: 10
+
+  - target_groups:
+    - source: update2
+      targets:
+      - instance: "10.11.122.14:6001"
+    - source: initial1
+      targets: []
+    interval: 10
+
+  - target_groups:
+    - source: update1
+      targets:
+      - instance: "10.11.122.13:6001"
+      - instance: "10.11.122.15:6001"
+      - instance: "10.11.122.16:6001"
+    interval: 10
+
+# Next test case.
+- - target_groups:
+    - source: initial1
+      targets:
+      - instance: "10.11.122.11:6001"
+      - instance: "10.11.122.12:6001"
+      - instance: "10.11.122.13:6001"
+    - source: initial2
+      targets:
+      - instance: "10.11.122.14:6001"
+    interval: 3
+
+  - target_groups:
+    - source: initial1
+      targets:
+      - instance: "10.11.122.13:6001"
+    interval: 10
+
+# Next test case.
+- - target_groups:
+    - source: initial1
+      targets:
+      - instance: "10.11.122.11:6001"
+      - instance: "10.11.122.12:6001"
+      - instance: "10.11.122.13:6001"
+    - source: initial2
+      targets:
+      - instance: "10.11.122.14:6001"
+    interval: 1000
+
+  - target_groups:
+    - source: initial1
+      targets:
+      - instance: "10.11.122.12:6001"
+    - source: update1
+      targets:
+      - instance: "10.11.122.15:6001"
+    interval: 3000
+
+  - target_groups:
+    - source: initial1
+      targets: []
+    - source: update1
+      targets:
+      - instance: "10.11.122.15:6001"
+      - instance: "10.11.122.16:6001"
+    interval: 3000
