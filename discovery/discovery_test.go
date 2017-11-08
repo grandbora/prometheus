@@ -704,7 +704,7 @@ func (tp mockTargetProvider) sendUpdates() {
 		time.Sleep(time.Duration(update.Interval) * time.Millisecond)
 
 		tgs := make([]*config.TargetGroup, len(update.TargetGroups))
-		for groupIndex, _ := range update.TargetGroups {
+		for groupIndex := range update.TargetGroups {
 
 			tgs[groupIndex] = &update.TargetGroups[groupIndex]
 		}
