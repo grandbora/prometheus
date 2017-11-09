@@ -1,16 +1,19 @@
-# No updates.
-- []
+- title: No updates
+  updates: []
 
-# Empty initials.
-- - target_groups: []
+- title: Empty initials
+  updates:
+  - target_groups: []
     interval: 5
 
-# Empty initials with a delay.
-- - target_groups: []
+- title: Empty initials with a delay
+  updates:
+  - target_groups: []
     interval: 6000
 
-# Initials only.
-- - target_groups:
+- title: Initials only
+  updates:
+  - target_groups:
     - source: initial1
       targets:
       - instance: 10.11.122.11:6001
@@ -19,8 +22,9 @@
       - instance: 10.11.122.12:6001
     interval: 0
 
-# Initials only but after a delay.
-- - target_groups:
+- title: Initials only but after a delay
+  updates:
+  - target_groups:
     - source: initial1
       targets:
       - instance: 10.11.122.11:6001
@@ -29,8 +33,9 @@
       - instance: 10.11.122.12:6001
     interval: 6000
 
-# Initials and new groups.
-- - target_groups:
+- title: Initials and new groups
+  updates:
+  - target_groups:
     - source: initial1
       targets:
       - instance: 10.11.122.11:6001
@@ -48,8 +53,9 @@
       - instance: 10.11.122.14:6001
     interval: 5
 
-# Initials and new groups after a delay.
-- - target_groups:
+- title: Initials and new groups after a delay
+  updates:
+  - target_groups:
     - source: initial1
       targets:
       - instance: 10.11.122.11:6001
@@ -67,8 +73,9 @@
       - instance: 10.11.122.14:6001
     interval: 500
 
-# Next test case.
-- - target_groups:
+- title: Next test case
+  updates:
+  - target_groups:
     - source: initial1
       targets:
       - instance: 10.11.122.11:6001
@@ -86,8 +93,9 @@
       - instance: 10.11.122.13:6001
     interval: 100
 
-# Next test case.
-- - target_groups:
+- title: Next test case
+  updates:
+  - target_groups:
     - source: initial1
       targets:
       - instance: 10.11.122.11:6001
@@ -117,8 +125,9 @@
       - instance: 10.11.122.18:6001
     interval: 100
 
-# Next test case.
-- - target_groups:
+- title: Next test case
+  updates:
+  - target_groups:
     - source: initial1
       targets:
       - instance: 10.11.122.11:6001
@@ -160,8 +169,9 @@
       - instance: 10.11.122.20:6001
     interval: 70
 
-# Next test case.
-- - target_groups:
+- title: Next test case
+  updates:
+  - target_groups:
     - source: initial1
       targets:
       - instance: 10.11.122.11:6001

@@ -34,10 +34,10 @@ func TestSingleTargetSetWithSingleProviderOnlySendsNewTargetGroups(t *testing.T)
 		t.Fatalf("error while parsing test cases: %v", err)
 	}
 
-	for i, updates := range testCases {
+	for i, testCase := range testCases {
 
 		expectedGroups := make(map[string]struct{})
-		for _, update := range updates {
+		for _, update := range testCase.Updates {
 			for _, target := range update.TargetGroups {
 				expectedGroups[target.Source] = struct{}{}
 			}
@@ -68,7 +68,7 @@ func TestSingleTargetSetWithSingleProviderOnlySendsNewTargetGroups(t *testing.T)
 		ctx, cancel := context.WithCancel(context.Background())
 		defer cancel()
 
-		tp := newMockTargetProvider(updates)
+		tp := newMockTargetProvider(testCase.Updates)
 		targetProviders := map[string]TargetProvider{}
 		targetProviders["testProvider"] = tp
 
@@ -77,29 +77,29 @@ func TestSingleTargetSetWithSingleProviderOnlySendsNewTargetGroups(t *testing.T)
 
 		select {
 		case <-time.After(20000 * time.Millisecond):
-			t.Errorf("In test case %v: Test timed out after 20000 millisecond. All targets should be sent within the timeout", i)
+			t.Errorf("In test case %v[%v]: Test timed out after 20000 millisecond. All targets should be sent within the timeout", i, testCase.Title)
 
 		case <-finalize:
 
 			if *tp.callCount != 1 {
-				t.Errorf("In test case %v: TargetProvider Run should be called once only, was called %v times", i, *tp.callCount)
+				t.Errorf("In test case %v[%v]: TargetProvider Run should be called once only, was called %v times", i, testCase.Title, *tp.callCount)
 			}
 
-			if len(updates) > 0 && updates[0].Interval > 5000 {
+			if len(testCase.Updates) > 0 && testCase.Updates[0].Interval > 5000 {
 				// If the initial set of targets never arrive or arrive after 5 seconds.
 				// The first sync call should receive empty set of targets.
 				if len(initialGroups) != 0 {
-					t.Errorf("In test case %v: Expecting 0 initial target groups, received %v", i, len(initialGroups))
+					t.Errorf("In test case %v[%v]: Expecting 0 initial target groups, received %v", i, testCase.Title, len(initialGroups))
 				}
 			}
 
 			if len(syncedGroups) != len(expectedGroups) {
-				t.Errorf("In test case %v: Expecting %v target groups in total, received %v", i, len(expectedGroups), len(syncedGroups))
+				t.Errorf("In test case %v[%v]: Expecting %v target groups in total, received %v", i, testCase.Title, len(expectedGroups), len(syncedGroups))
 			}
 
 			for _, tg := range syncedGroups {
 				if _, ok := expectedGroups[tg.Source]; ok == false {
-					t.Errorf("In test case %v: '%s' does not exist in expected target groups: %s", i, tg.Source, expectedGroups)
+					t.Errorf("In test case %v[%v]: '%s' does not exist in expected target groups: %s", i, testCase.Title, tg.Source, expectedGroups)
 				} else {
 					delete(expectedGroups, tg.Source) // Remove used targets from the map.
 				}
@@ -140,10 +140,10 @@ func TestSingleTargetSetWithSingleProviderSendsUpdatedTargetGroups(t *testing.T)
 		t.Fatalf("error while parsing test cases: %v", err)
 	}
 
-	for i, updates := range testCases {
+	for i, testCase := range testCases {
 
 		expectedGroups := make(map[string]config.TargetGroup)
-		for _, update := range updates {
+		for _, update := range testCase.Updates {
 			for _, targetGroup := range update.TargetGroups {
 				expectedGroups[targetGroup.Source] = targetGroup
 			}
@@ -170,7 +170,7 @@ func TestSingleTargetSetWithSingleProviderSendsUpdatedTargetGroups(t *testing.T)
 		ctx, cancel := context.WithCancel(context.Background())
 		defer cancel()
 
-		tp := newMockTargetProvider(updates)
+		tp := newMockTargetProvider(testCase.Updates)
 		targetProviders := map[string]TargetProvider{}
 		targetProviders["testProvider"] = tp
 
@@ -179,7 +179,7 @@ func TestSingleTargetSetWithSingleProviderSendsUpdatedTargetGroups(t *testing.T)
 
 		select {
 		case <-time.After(20000 * time.Millisecond):
-			t.Errorf("In test case %v: Test timed out after 20000 millisecond. All targets should be sent within the timeout", i)
+			t.Errorf("In test case %v[%v]: Test timed out after 20000 millisecond. All targets should be sent within the timeout", i, testCase.Title)
 
 		case <-finalize:
 			// System successfully reached to the end state.
@@ -313,6 +313,11 @@ type update struct {
 	Interval     int
 }
 
+type testCase struct {
+	Title   string
+	Updates []update
+}
+
 // UnmarshalYAML implements the yaml.Unmarshaler interface.
 func (u *update) UnmarshalYAML(unmarshal func(interface{}) error) error {
 
@@ -349,14 +354,14 @@ func (u *update) UnmarshalYAML(unmarshal func(interface{}) error) error {
 	return nil
 }
 
-func loadTestCases(fileName string) ([][]update, error) {
+func loadTestCases(fileName string) ([]testCase, error) {
 	content, err := ioutil.ReadFile("testdata/" + fileName)
 
 	if err != nil {
 		return nil, err
 	}
 
-	parsedTestCases := [][]update{}
+	var parsedTestCases []testCase
 
 	err = yaml.Unmarshal([]byte(string(content)), &parsedTestCases)
 	if err != nil {

@@ -1,5 +1,6 @@
-# Update same initial group multiple times.
-- - target_groups:
+- title: Update same initial group multiple times
+  updates:
+  - target_groups:
     - source: initial1
       targets:
       - instance: "10.11.122.11:6001"
@@ -17,8 +18,9 @@
       - instance: "10.11.122.11:6003"
     interval: 4
 
-# Update second round target.
-- - target_groups:
+- title: Update second round target
+  updates:
+  - target_groups:
     - source: initial1
       targets:
       - instance: "10.11.122.11:6001"
@@ -38,8 +40,9 @@
       - instance: "10.11.122.11:6005"
     interval: 10
 
-# Next test case.
-- - target_groups:
+- title: Next test case
+  updates:
+  - target_groups:
     - source: initial1
       targets:
       - instance: "10.11.122.11:6001"
@@ -74,8 +77,9 @@
       - instance: "10.11.122.16:6001"
     interval: 10
 
-# Next test case.
-- - target_groups:
+- title: Next test case
+  updates:
+  - target_groups:
     - source: initial1
       targets:
       - instance: "10.11.122.11:6001"
@@ -92,8 +96,9 @@
       - instance: "10.11.122.13:6001"
     interval: 10
 
-# Next test case.
-- - target_groups:
+- title: Next test case
+  updates:
+  - target_groups:
     - source: initial1
       targets:
       - instance: "10.11.122.11:6001"
