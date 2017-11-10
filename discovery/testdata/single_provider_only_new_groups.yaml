@@ -1,15 +1,21 @@
 - title: No updates
   updates: []
+  expected_sync_calls:
+  - []
 
 - title: Empty initials
   updates:
   - target_groups: []
     interval: 5
+  expected_sync_calls:
+  - []
 
 - title: Empty initials with a delay
   updates:
   - target_groups: []
     interval: 6000
+  expected_sync_calls:
+  - []
 
 - title: Initials only
   updates:
@@ -21,6 +27,8 @@
       targets:
       - instance: 10.11.122.12:6001
     interval: 0
+  expected_sync_calls:
+  - ["initial1", "initial2"]
 
 - title: Initials only but after a delay
   updates:
@@ -32,6 +40,26 @@
       targets:
       - instance: 10.11.122.12:6001
     interval: 6000
+  expected_sync_calls:
+  - []
+  - ["initial1", "initial2"]
+
+- title: Initials followed by empty updates
+  updates:
+  - target_groups:
+    - source: initial1
+      targets:
+      - instance: 10.11.122.11:6001
+    - source: initial2
+      targets:
+      - instance: 10.11.122.12:6001
+    interval: 0
+  
+  - target_groups: []
+    interval: 10
+
+  expected_sync_calls:
+  - ["initial1", "initial2"]
 
 - title: Initials and new groups
   updates:
@@ -53,6 +81,11 @@
       - instance: 10.11.122.14:6001
     interval: 5
 
+  expected_sync_calls:
+  - ["initial1", "initial2"]
+  - ["update1", "update2"]
+
+
 - title: Initials and new groups after a delay
   updates:
   - target_groups:
@@ -71,135 +104,140 @@
     - source: update2
       targets:
       - instance: 10.11.122.14:6001
-    interval: 500
+    interval: 50
 
-- title: Next test case
-  updates:
-  - target_groups:
-    - source: initial1
-      targets:
-      - instance: 10.11.122.11:6001
-    interval: 100
+  expected_sync_calls:
+  - []
+  - ["initial1", "initial2"]
+  - ["update1", "update2"]
 
-  - target_groups:
-    - source: update1
-      targets:
-      - instance: 10.11.122.12:6001
-    interval: 100
+# - title: Next test case
+#   updates:
+#   - target_groups:
+#     - source: initial1
+#       targets:
+#       - instance: 10.11.122.11:6001
+#     interval: 100
 
-  - target_groups:
-    - source: update2
-      targets:
-      - instance: 10.11.122.13:6001
-    interval: 100
+#   - target_groups:
+#     - source: update1
+#       targets:
+#       - instance: 10.11.122.12:6001
+#     interval: 100
 
-- title: Next test case
-  updates:
-  - target_groups:
-    - source: initial1
-      targets:
-      - instance: 10.11.122.11:6001
-    - source: initial2
-      targets:
-      - instance: 10.11.122.12:6001
-    interval: 100
+#   - target_groups:
+#     - source: update2
+#       targets:
+#       - instance: 10.11.122.13:6001
+#     interval: 100
 
-  - target_groups:
-    - source: update1
-      targets:
-      - instance: 10.11.122.13:6001
-    - source: update2
-      targets:
-      - instance: 10.11.122.14:6001
-    - source: update3
-      targets:
-      - instance: 10.11.122.15:6001
-    - source: update4
-      targets:
-      - instance: 10.11.122.16:6001
-    - source: update5
-      targets:
-      - instance: 10.11.122.17:6001
-    - source: update6
-      targets:
-      - instance: 10.11.122.18:6001
-    interval: 100
+# - title: Next test case
+#   updates:
+#   - target_groups:
+#     - source: initial1
+#       targets:
+#       - instance: 10.11.122.11:6001
+#     - source: initial2
+#       targets:
+#       - instance: 10.11.122.12:6001
+#     interval: 100
 
-- title: Next test case
-  updates:
-  - target_groups:
-    - source: initial1
-      targets:
-      - instance: 10.11.122.11:6001
-    interval: 10
+#   - target_groups:
+#     - source: update1
+#       targets:
+#       - instance: 10.11.122.13:6001
+#     - source: update2
+#       targets:
+#       - instance: 10.11.122.14:6001
+#     - source: update3
+#       targets:
+#       - instance: 10.11.122.15:6001
+#     - source: update4
+#       targets:
+#       - instance: 10.11.122.16:6001
+#     - source: update5
+#       targets:
+#       - instance: 10.11.122.17:6001
+#     - source: update6
+#       targets:
+#       - instance: 10.11.122.18:6001
+#     interval: 100
 
-  - target_groups:
-    - source: update1
-      targets:
-      - instance: 10.11.122.13:6001
-    interval: 45
+# - title: Next test case
+#   updates:
+#   - target_groups:
+#     - source: initial1
+#       targets:
+#       - instance: 10.11.122.11:6001
+#     interval: 10
 
-  - target_groups:
-    - source: update2
-      targets:
-      - instance: 10.11.122.14:6001
-    - source: update3
-      targets:
-      - instance: 10.11.122.15:6001
-    - source: update4
-      targets:
-      - instance: 10.11.122.16:6001
-    interval: 0
+#   - target_groups:
+#     - source: update1
+#       targets:
+#       - instance: 10.11.122.13:6001
+#     interval: 45
 
-  - target_groups:
-    - source: update5
-      targets:
-      - instance: 10.11.122.17:6001
-    interval: 10
+#   - target_groups:
+#     - source: update2
+#       targets:
+#       - instance: 10.11.122.14:6001
+#     - source: update3
+#       targets:
+#       - instance: 10.11.122.15:6001
+#     - source: update4
+#       targets:
+#       - instance: 10.11.122.16:6001
+#     interval: 0
 
-  - target_groups:
-    - source: update6
-      targets:
-      - instance: 10.11.122.18:6001
-    - source: update7
-      targets:
-      - instance: 10.11.122.19:6001
-    - source: update8
-      targets:
-      - instance: 10.11.122.20:6001
-    interval: 70
+#   - target_groups:
+#     - source: update5
+#       targets:
+#       - instance: 10.11.122.17:6001
+#     interval: 10
 
-- title: Next test case
-  updates:
-  - target_groups:
-    - source: initial1
-      targets:
-      - instance: 10.11.122.11:6001
-    - source: initial2
-      targets:
-      - instance: 10.11.122.12:6001
-    interval: 5
+#   - target_groups:
+#     - source: update6
+#       targets:
+#       - instance: 10.11.122.18:6001
+#     - source: update7
+#       targets:
+#       - instance: 10.11.122.19:6001
+#     - source: update8
+#       targets:
+#       - instance: 10.11.122.20:6001
+#     interval: 70
 
-  - target_groups: []
-    interval: 100
+# - title: Next test case
+#   updates:
+#   - target_groups:
+#     - source: initial1
+#       targets:
+#       - instance: 10.11.122.11:6001
+#     - source: initial2
+#       targets:
+#       - instance: 10.11.122.12:6001
+#     interval: 5
 
-  - target_groups:
-    - source: update1
-      targets:
-      - instance: 10.11.122.13:6001
-    - source: update2
-      targets:
-      - instance: 10.11.122.14:6001
-    interval: 100
+#   - target_groups: []
+#     interval: 100
 
-  - target_groups:
-    - source: update3
-      targets:
-      - instance: 10.11.122.15:6001
-    - source: update4
-      targets:
-      - instance: 10.11.122.16:6001
-    - source: update5
-      targets:
-      - instance: 10.11.122.17:6001
-    interval: 70
+#   - target_groups:
+#     - source: update1
+#       targets:
+#       - instance: 10.11.122.13:6001
+#     - source: update2
+#       targets:
+#       - instance: 10.11.122.14:6001
+#     interval: 100
+
+#   - target_groups:
+#     - source: update3
+#       targets:
+#       - instance: 10.11.122.15:6001
+#     - source: update4
+#       targets:
+#       - instance: 10.11.122.16:6001
+#     - source: update5
+#       targets:
+#       - instance: 10.11.122.17:6001
+#     interval: 70

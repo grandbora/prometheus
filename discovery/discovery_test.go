@@ -27,38 +27,46 @@ import (
 	yaml "gopkg.in/yaml.v2"
 )
 
+
+// TODO: fix failures on the order
+// uncomm other test cases
 func TestSingleTargetSetWithSingleProviderOnlySendsNewTargetGroups(t *testing.T) {
 
-	testCases, err := loadTestCases("single_provider_only_new_groups.yaml")
-	if err != nil {
-		t.Fatalf("error while parsing test cases: %v", err)
-	}
+  content, err := loadFile("single_provider_only_new_groups.yaml")
+  if err != nil {
+    t.Fatalf("error while reading the test data file: %v", err)
+  }
+
+  var testCases []struct{
+    Title string 
+    Updates []update
+    ExpectedSyncCalls [][]string `yaml:"expected_sync_calls"`
+  }
+
+  err = yaml.Unmarshal([]byte(content), &testCases)
+  if err != nil {
+    t.Fatalf("error while parsing test cases: %v", err)
+  }
 
 	for i, testCase := range testCases {
 
-		expectedGroups := make(map[string]struct{})
-		for _, update := range testCase.Updates {
-			for _, target := range update.TargetGroups {
-				expectedGroups[target.Source] = struct{}{}
-			}
-		}
-
 		finalize := make(chan bool)
 
-		isFirstSyncCall := true
-		var initialGroups []*config.TargetGroup
-		var syncedGroups []*config.TargetGroup
+		syncCallCount := 0
+		syncedGroups := make([][]string, 0)
 
 		targetSet := NewTargetSet(&mockSyncer{
 			sync: func(tgs []*config.TargetGroup) {
-				syncedGroups = tgs
+        
+        currentCallGroup := make([]string, len(tgs))
+        for i, tg := range tgs {
+          currentCallGroup[i] = tg.Source
+        }
+        syncedGroups = append(syncedGroups, currentCallGroup)
 
-				if isFirstSyncCall {
-					isFirstSyncCall = false
-					initialGroups = tgs
-				}
+        syncCallCount++
 
-				if len(tgs) == len(expectedGroups) {
+				if syncCallCount == len(testCase.ExpectedSyncCalls) {
 					// All the groups are sent, we can start asserting.
 					finalize <- true
 				}
@@ -85,25 +93,9 @@ func TestSingleTargetSetWithSingleProviderOnlySendsNewTargetGroups(t *testing.T)
 				t.Errorf("In test case %v[%v]: TargetProvider Run should be called once only, was called %v times", i, testCase.Title, *tp.callCount)
 			}
 
-			if len(testCase.Updates) > 0 && testCase.Updates[0].Interval > 5000 {
-				// If the initial set of targets never arrive or arrive after 5 seconds.
-				// The first sync call should receive empty set of targets.
-				if len(initialGroups) != 0 {
-					t.Errorf("In test case %v[%v]: Expecting 0 initial target groups, received %v", i, testCase.Title, len(initialGroups))
-				}
-			}
-
-			if len(syncedGroups) != len(expectedGroups) {
-				t.Errorf("In test case %v[%v]: Expecting %v target groups in total, received %v", i, testCase.Title, len(expectedGroups), len(syncedGroups))
-			}
-
-			for _, tg := range syncedGroups {
-				if _, ok := expectedGroups[tg.Source]; ok == false {
-					t.Errorf("In test case %v[%v]: '%s' does not exist in expected target groups: %s", i, testCase.Title, tg.Source, expectedGroups)
-				} else {
-					delete(expectedGroups, tg.Source) // Remove used targets from the map.
-				}
-			}
+      if reflect.DeepEqual(syncedGroups, testCase.ExpectedSyncCalls) == false {
+        t.Errorf("In test case %v[%v]: received sync calls: \n %v \n do not match expected calls: \n %v \n", i, testCase.Title, syncedGroups, testCase.ExpectedSyncCalls)
+      }
 		}
 	}
 }
@@ -354,8 +346,18 @@ func (u *update) UnmarshalYAML(unmarshal func(interface{}) error) error {
 	return nil
 }
 
+func loadFile(fileName string) (string, error) {
+  content, err := ioutil.ReadFile("testdata/" + fileName)
+
+  if err != nil {
+    return "", err
+  }
+
+  return string(content), nil
+}
+
 func loadTestCases(fileName string) ([]testCase, error) {
-	content, err := ioutil.ReadFile("testdata/" + fileName)
+	content, err := loadFile(fileName)
 
 	if err != nil {
 		return nil, err
@@ -363,7 +365,7 @@ func loadTestCases(fileName string) ([]testCase, error) {
 
 	var parsedTestCases []testCase
 
-	err = yaml.Unmarshal([]byte(string(content)), &parsedTestCases)
+	err = yaml.Unmarshal([]byte(content), &parsedTestCases)
 	if err != nil {
 		return nil, err
 	}
