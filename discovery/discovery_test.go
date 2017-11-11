@@ -29,22 +29,37 @@ import (
 func TestTargetSetThrottlesTheSyncCalls(t *testing.T) {
 	testCases := []struct {
 		title             string
-		updates           []update
+		updates           map[string][]update
 		expectedSyncCalls [][]string
 	}{
 		{
-			title:   "No updates",
-			updates: []update{},
+			title: "Single TP no updates",
+			updates: map[string][]update{
+				"tp1": {},
+			},
 			expectedSyncCalls: [][]string{
 				{},
 			},
 		},
 		{
-			title: "Empty initials",
-			updates: []update{
-				{
-					targetGroups: []config.TargetGroup{},
-					interval:     5,
+			title: "Multips TPs no updates",
+			updates: map[string][]update{
+				"tp1": {},
+				"tp2": {},
+				"tp3": {},
+			},
+			expectedSyncCalls: [][]string{
+				{},
+			},
+		},
+		{
+			title: "Single TP empty initials",
+			updates: map[string][]update{
+				"tp1": {
+					{
+						targetGroups: []config.TargetGroup{},
+						interval:     5,
+					},
 				},
 			},
 			expectedSyncCalls: [][]string{
@@ -52,11 +67,25 @@ func TestTargetSetThrottlesTheSyncCalls(t *testing.T) {
 			},
 		},
 		{
-			title: "Empty initials with a delay",
-			updates: []update{
-				{
-					targetGroups: []config.TargetGroup{},
-					interval:     6000,
+			title: "Multiple TPs empty initials",
+			updates: map[string][]update{
+				"tp1": {
+					{
+						targetGroups: []config.TargetGroup{},
+						interval:     5,
+					},
+				},
+				"tp2": {
+					{
+						targetGroups: []config.TargetGroup{},
+						interval:     500,
+					},
+				},
+				"tp3": {
+					{
+						targetGroups: []config.TargetGroup{},
+						interval:     100,
+					},
 				},
 			},
 			expectedSyncCalls: [][]string{
@@ -64,11 +93,33 @@ func TestTargetSetThrottlesTheSyncCalls(t *testing.T) {
 			},
 		},
 		{
-			title: "Initials only",
-			updates: []update{
-				{
-					targetGroups: []config.TargetGroup{{Source: "initial1"}, {Source: "initial2"}},
-					interval:     0,
+			title: "Multiple TPs empty initials with a delay",
+			updates: map[string][]update{
+				"tp1": {
+					{
+						targetGroups: []config.TargetGroup{},
+						interval:     6000,
+					},
+				},
+				"tp2": {
+					{
+						targetGroups: []config.TargetGroup{},
+						interval:     6500,
+					},
+				},
+			},
+			expectedSyncCalls: [][]string{
+				{},
+			},
+		},
+		{
+			title: "Single TP initials only",
+			updates: map[string][]update{
+				"tp1": {
+					{
+						targetGroups: []config.TargetGroup{{Source: "initial1"}, {Source: "initial2"}},
+						interval:     0,
+					},
 				},
 			},
 			expectedSyncCalls: [][]string{
@@ -76,11 +127,33 @@ func TestTargetSetThrottlesTheSyncCalls(t *testing.T) {
 			},
 		},
 		{
-			title: "Initials only but after a delay",
-			updates: []update{
-				{
-					targetGroups: []config.TargetGroup{{Source: "initial1"}, {Source: "initial2"}},
-					interval:     6000,
+			title: "Multiple TPs initials only",
+			updates: map[string][]update{
+				"tp1": {
+					{
+						targetGroups: []config.TargetGroup{{Source: "tp1-initial1"}, {Source: "tp1-initial2"}},
+						interval:     0,
+					},
+				},
+				"tp2": {
+					{
+						targetGroups: []config.TargetGroup{{Source: "tp2-initial1"}},
+						interval:     0,
+					},
+				},
+			},
+			expectedSyncCalls: [][]string{
+				{"tp1-initial1", "tp1-initial2", "tp2-initial1"},
+			},
+		},
+		{
+			title: "Single TP delayed initials only",
+			updates: map[string][]update{
+				"tp1": {
+					{
+						targetGroups: []config.TargetGroup{{Source: "initial1"}, {Source: "initial2"}},
+						interval:     6000,
+					},
 				},
 			},
 			expectedSyncCalls: [][]string{
@@ -89,15 +162,38 @@ func TestTargetSetThrottlesTheSyncCalls(t *testing.T) {
 			},
 		},
 		{
-			title: "Initials followed by empty updates",
-			updates: []update{
-				{
-					targetGroups: []config.TargetGroup{{Source: "initial1"}, {Source: "initial2"}},
-					interval:     0,
+			title: "Multiple TPs with some delayed initials",
+			updates: map[string][]update{
+				"tp1": {
+					{
+						targetGroups: []config.TargetGroup{{Source: "tp1-initial1"}, {Source: "tp1-initial2"}},
+						interval:     100,
+					},
 				},
-				{
-					targetGroups: []config.TargetGroup{},
-					interval:     10,
+				"tp2": {
+					{
+						targetGroups: []config.TargetGroup{{Source: "tp2-initial1"}, {Source: "tp2-initial2"}, {Source: "tp2-initial3"}},
+						interval:     6000,
+					},
+				},
+			},
+			expectedSyncCalls: [][]string{
+				{"tp1-initial1", "tp1-initial2"},
+				{"tp1-initial1", "tp1-initial2", "tp2-initial1", "tp2-initial2", "tp2-initial3"},
+			},
+		},
+		{
+			title: "Single TP initials followed by empty updates",
+			updates: map[string][]update{
+				"tp1": {
+					{
+						targetGroups: []config.TargetGroup{{Source: "initial1"}, {Source: "initial2"}},
+						interval:     0,
+					},
+					{
+						targetGroups: []config.TargetGroup{},
+						interval:     10,
+					},
 				},
 			},
 			expectedSyncCalls: [][]string{
@@ -105,15 +201,17 @@ func TestTargetSetThrottlesTheSyncCalls(t *testing.T) {
 			},
 		},
 		{
-			title: "Initials and new groups",
-			updates: []update{
-				{
-					targetGroups: []config.TargetGroup{{Source: "initial1"}, {Source: "initial2"}},
-					interval:     0,
-				},
-				{
-					targetGroups: []config.TargetGroup{{Source: "update1"}, {Source: "update2"}},
-					interval:     10,
+			title: "Single TP initials and new groups",
+			updates: map[string][]update{
+				"tp1": {
+					{
+						targetGroups: []config.TargetGroup{{Source: "initial1"}, {Source: "initial2"}},
+						interval:     0,
+					},
+					{
+						targetGroups: []config.TargetGroup{{Source: "update1"}, {Source: "update2"}},
+						interval:     10,
+					},
 				},
 			},
 			expectedSyncCalls: [][]string{
@@ -122,15 +220,104 @@ func TestTargetSetThrottlesTheSyncCalls(t *testing.T) {
 			},
 		},
 		{
-			title: "Initials and new groups after a delay",
-			updates: []update{
-				{
-					targetGroups: []config.TargetGroup{{Source: "initial1"}, {Source: "initial2"}},
-					interval:     6000,
+			title: "Multiple TPs initials and new groups",
+			updates: map[string][]update{
+				"tp1": {
+					{
+						targetGroups: []config.TargetGroup{{Source: "tp1-initial1"}, {Source: "tp1-initial2"}},
+						interval:     10,
+					},
+					{
+						targetGroups: []config.TargetGroup{{Source: "tp1-update1"}, {Source: "tp1-update2"}},
+						interval:     1500,
+					},
 				},
-				{
-					targetGroups: []config.TargetGroup{{Source: "update1"}, {Source: "update2"}},
-					interval:     10,
+				"tp2": {
+					{
+						targetGroups: []config.TargetGroup{{Source: "tp2-initial1"}, {Source: "tp2-initial2"}},
+						interval:     100,
+					},
+					{
+						targetGroups: []config.TargetGroup{{Source: "tp2-update1"}, {Source: "tp2-update2"}},
+						interval:     10,
+					},
+				},
+			},
+			expectedSyncCalls: [][]string{
+				{"tp1-initial1", "tp1-initial2", "tp2-initial1", "tp2-initial2"},
+				{"tp1-initial1", "tp1-initial2", "tp2-initial1", "tp2-initial2", "tp1-update1", "tp1-update2", "tp2-update1", "tp2-update2"},
+			},
+		},
+		{
+			title: "One tp initials arrive after other tp updates but still within 5 seconds",
+			updates: map[string][]update{
+				"tp1": {
+					{
+						targetGroups: []config.TargetGroup{{Source: "tp1-initial1"}, {Source: "tp1-initial2"}},
+						interval:     10,
+					},
+					{
+						targetGroups: []config.TargetGroup{{Source: "tp1-update1"}, {Source: "tp1-update2"}},
+						interval:     1500,
+					},
+				},
+				"tp2": {
+					{
+						targetGroups: []config.TargetGroup{{Source: "tp2-initial1"}, {Source: "tp2-initial2"}},
+						interval:     2000,
+					},
+					{
+						targetGroups: []config.TargetGroup{{Source: "tp2-update1"}, {Source: "tp2-update2"}},
+						interval:     1000,
+					},
+				},
+			},
+			expectedSyncCalls: [][]string{
+				{"tp1-initial1", "tp1-initial2", "tp1-update1", "tp1-update2", "tp2-initial1", "tp2-initial2"},
+				{"tp1-initial1", "tp1-initial2", "tp1-update1", "tp1-update2", "tp2-initial1", "tp2-initial2", "tp2-update1", "tp2-update2"},
+			},
+		},
+		{
+			title: "One tp initials arrive after other tp updates and after 5 seconds",
+			updates: map[string][]update{
+				"tp1": {
+					{
+						targetGroups: []config.TargetGroup{{Source: "tp1-initial1"}, {Source: "tp1-initial2"}},
+						interval:     10,
+					},
+					{
+						targetGroups: []config.TargetGroup{{Source: "tp1-update1"}, {Source: "tp1-update2"}},
+						interval:     1500,
+					},
+					{
+						targetGroups: []config.TargetGroup{{Source: "tp1-update3"}},
+						interval:     5000,
+					},
+				},
+				"tp2": {
+					{
+						targetGroups: []config.TargetGroup{{Source: "tp2-initial1"}, {Source: "tp2-initial2"}},
+						interval:     6000,
+					},
+				},
+			},
+			expectedSyncCalls: [][]string{
+				{"tp1-initial1", "tp1-initial2", "tp1-update1", "tp1-update2"},
+				{"tp1-initial1", "tp1-initial2", "tp1-update1", "tp1-update2", "tp2-initial1", "tp2-initial2", "tp1-update3"},
+			},
+		},
+		{
+			title: "Single TP initials and new groups after a delay",
+			updates: map[string][]update{
+				"tp1": {
+					{
+						targetGroups: []config.TargetGroup{{Source: "initial1"}, {Source: "initial2"}},
+						interval:     6000,
+					},
+					{
+						targetGroups: []config.TargetGroup{{Source: "update1"}, {Source: "update2"}},
+						interval:     10,
+					},
 				},
 			},
 			expectedSyncCalls: [][]string{
@@ -139,23 +326,25 @@ func TestTargetSetThrottlesTheSyncCalls(t *testing.T) {
 			},
 		},
 		{
-			title: "Initial and successive updates",
-			updates: []update{
-				{
-					targetGroups: []config.TargetGroup{{Source: "initial1"}},
-					interval:     100,
-				},
-				{
-					targetGroups: []config.TargetGroup{{Source: "update1"}},
-					interval:     100,
-				},
-				{
-					targetGroups: []config.TargetGroup{{Source: "update2"}},
-					interval:     10,
-				},
-				{
-					targetGroups: []config.TargetGroup{{Source: "update3"}},
-					interval:     10,
+			title: "Single TP initial and successive updates",
+			updates: map[string][]update{
+				"tp1": {
+					{
+						targetGroups: []config.TargetGroup{{Source: "initial1"}},
+						interval:     100,
+					},
+					{
+						targetGroups: []config.TargetGroup{{Source: "update1"}},
+						interval:     100,
+					},
+					{
+						targetGroups: []config.TargetGroup{{Source: "update2"}},
+						interval:     10,
+					},
+					{
+						targetGroups: []config.TargetGroup{{Source: "update3"}},
+						interval:     10,
+					},
 				},
 			},
 			expectedSyncCalls: [][]string{
@@ -164,44 +353,74 @@ func TestTargetSetThrottlesTheSyncCalls(t *testing.T) {
 			},
 		},
 		{
-			title: "Large number of updates",
-			updates: []update{
-				{
-					targetGroups: []config.TargetGroup{{Source: "initial1"}, {Source: "initial2"}},
-					interval:     100,
+			title: "Multiple TPs initials and successive updates",
+			updates: map[string][]update{
+				"tp1": {
+					{
+						targetGroups: []config.TargetGroup{{Source: "tp1-initial1"}},
+						interval:     1000,
+					},
+					{
+						targetGroups: []config.TargetGroup{{Source: "tp1-update1"}},
+						interval:     1000,
+					},
+					{
+						targetGroups: []config.TargetGroup{{Source: "tp1-update2"}},
+						interval:     2000,
+					},
+					{
+						targetGroups: []config.TargetGroup{{Source: "tp1-update3"}},
+						interval:     2000,
+					},
 				},
-				{
-					targetGroups: []config.TargetGroup{{Source: "update1"}, {Source: "update2"}, {Source: "update3"}, {Source: "update4"}, {Source: "update5"}, {Source: "update6"}},
-					interval:     30,
+				"tp2": {
+					{
+						targetGroups: []config.TargetGroup{{Source: "tp2-initial1"}},
+						interval:     3000,
+					},
+					{
+						targetGroups: []config.TargetGroup{{Source: "tp2-update1"}},
+						interval:     1000,
+					},
+					{
+						targetGroups: []config.TargetGroup{{Source: "tp2-update2"}},
+						interval:     3000,
+					},
+					{
+						targetGroups: []config.TargetGroup{{Source: "tp2-update3"}},
+						interval:     2000,
+					},
 				},
 			},
 			expectedSyncCalls: [][]string{
-				{"initial1", "initial2"},
-				{"initial1", "initial2", "update1", "update2", "update3", "update4", "update5", "update6"},
+				{"tp1-initial1", "tp1-update1", "tp1-update2", "tp2-initial1", "tp2-update1"},
+				{"tp1-initial1", "tp1-update1", "tp1-update2", "tp2-initial1", "tp2-update1", "tp1-update3", "tp2-update2", "tp2-update3"},
 			},
 		},
 		{
-			title: "Multiple updates 5 second window",
-			updates: []update{
-				{
-					targetGroups: []config.TargetGroup{{Source: "initial1"}},
-					interval:     10,
-				},
-				{
-					targetGroups: []config.TargetGroup{{Source: "update1"}},
-					interval:     25,
-				},
-				{
-					targetGroups: []config.TargetGroup{{Source: "update2"}, {Source: "update3"}, {Source: "update4"}},
-					interval:     10,
-				},
-				{
-					targetGroups: []config.TargetGroup{{Source: "update5"}},
-					interval:     0,
-				},
-				{
-					targetGroups: []config.TargetGroup{{Source: "update6"}, {Source: "update7"}, {Source: "update8"}},
-					interval:     70,
+			title: "Single TP Multiple updates 5 second window",
+			updates: map[string][]update{
+				"tp1": {
+					{
+						targetGroups: []config.TargetGroup{{Source: "initial1"}},
+						interval:     10,
+					},
+					{
+						targetGroups: []config.TargetGroup{{Source: "update1"}},
+						interval:     25,
+					},
+					{
+						targetGroups: []config.TargetGroup{{Source: "update2"}, {Source: "update3"}, {Source: "update4"}},
+						interval:     10,
+					},
+					{
+						targetGroups: []config.TargetGroup{{Source: "update5"}},
+						interval:     0,
+					},
+					{
+						targetGroups: []config.TargetGroup{{Source: "update6"}, {Source: "update7"}, {Source: "update8"}},
+						interval:     70,
+					},
 				},
 			},
 			expectedSyncCalls: [][]string{
@@ -210,23 +429,25 @@ func TestTargetSetThrottlesTheSyncCalls(t *testing.T) {
 			},
 		},
 		{
-			title: "Empty update in between",
-			updates: []update{
-				{
-					targetGroups: []config.TargetGroup{{Source: "initial1"}, {Source: "initial2"}},
-					interval:     30,
-				},
-				{
-					targetGroups: []config.TargetGroup{{Source: "update1"}, {Source: "update2"}},
-					interval:     300,
-				},
-				{
-					targetGroups: []config.TargetGroup{},
-					interval:     10,
-				},
-				{
-					targetGroups: []config.TargetGroup{{Source: "update3"}, {Source: "update4"}, {Source: "update5"}, {Source: "update6"}},
-					interval:     6000,
+			title: "Single TP Single provider empty update in between",
+			updates: map[string][]update{
+				"tp1": {
+					{
+						targetGroups: []config.TargetGroup{{Source: "initial1"}, {Source: "initial2"}},
+						interval:     30,
+					},
+					{
+						targetGroups: []config.TargetGroup{{Source: "update1"}, {Source: "update2"}},
+						interval:     300,
+					},
+					{
+						targetGroups: []config.TargetGroup{},
+						interval:     10,
+					},
+					{
+						targetGroups: []config.TargetGroup{{Source: "update3"}, {Source: "update4"}, {Source: "update5"}, {Source: "update6"}},
+						interval:     6000,
+					},
 				},
 			},
 			expectedSyncCalls: [][]string{
@@ -263,9 +484,11 @@ func TestTargetSetThrottlesTheSyncCalls(t *testing.T) {
 		ctx, cancel := context.WithCancel(context.Background())
 		defer cancel()
 
-		tp := newMockTargetProvider(testCase.updates)
 		targetProviders := map[string]TargetProvider{}
-		targetProviders["testProvider"] = tp
+		for tpName, tpUpdates := range testCase.updates {
+			tp := newMockTargetProvider(tpUpdates)
+			targetProviders[tpName] = tp
+		}
 
 		go targetSet.Run(ctx)
 		targetSet.UpdateProviders(targetProviders)
@@ -275,9 +498,11 @@ func TestTargetSetThrottlesTheSyncCalls(t *testing.T) {
 			t.Errorf("%d. %q: Test timed out after 20 seconds. All targets should be sent within the timeout", i, testCase.title)
 
 		case <-finalize:
-
-			if *tp.callCount != 1 {
-				t.Errorf("%d. %q: TargetProvider Run should be called once only, was called %v times", i, testCase.title, *tp.callCount)
+			for name, tp := range targetProviders {
+				runCallCount := *tp.(mockTargetProvider).callCount
+				if runCallCount != 1 {
+					t.Errorf("%d. %q: TargetProvider Run should be called once for each target provider. For %q was called %d times", i, testCase.title, name, runCallCount)
+				}
 			}
 
 			if len(syncedGroups) != len(testCase.expectedSyncCalls) {
@@ -301,7 +526,6 @@ func TestTargetSetThrottlesTheSyncCalls(t *testing.T) {
 						delete(expectedGroupsMap, syncedGroup) // Remove used targets from the map.
 					}
 				}
-
 			}
 		}
 	}
@@ -338,7 +562,7 @@ func TestTargetSetConsolidatesToTheLatestState(t *testing.T) {
 		updates []update
 	}{
 		{
-			title: "Update same initial group multiple times",
+			title: "Single TP Update same initial group multiple times",
 			updates: []update{
 				{
 					targetGroups: []config.TargetGroup{
@@ -352,7 +576,7 @@ func TestTargetSetConsolidatesToTheLatestState(t *testing.T) {
 			},
 		},
 		{
-			title: "Update second round target",
+			title: "Single TP Update second round target",
 			updates: []update{
 				{
 					targetGroups: []config.TargetGroup{
@@ -388,7 +612,7 @@ func TestTargetSetConsolidatesToTheLatestState(t *testing.T) {
 			},
 		},
 		{
-			title: "Next test case",
+			title: "Single TP Next test case",
 			updates: []update{
 				{
 					targetGroups: []config.TargetGroup{
@@ -448,7 +672,7 @@ func TestTargetSetConsolidatesToTheLatestState(t *testing.T) {
 			},
 		},
 		{
-			title: "Next test case",
+			title: "Single TP Next test case",
 			updates: []update{
 				{
 					targetGroups: []config.TargetGroup{
@@ -479,7 +703,7 @@ func TestTargetSetConsolidatesToTheLatestState(t *testing.T) {
 			},
 		},
 		{
-			title: "Three times sync call",
+			title: "Single TP Three times sync call",
 			updates: []update{
 				{
 					targetGroups: []config.TargetGroup{
